@@ -7,6 +7,9 @@ from Crypto.Util.Padding import pad, unpad
 import base64
 import struct
 import os
+import customtkinter as ctk
+from tkinter import messagebox, Listbox
+import time
 
 def get_windows_wireless_ip():
     try:
@@ -25,12 +28,15 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((host, port))
 server.listen()
 
+running = False
+
 # AES configuration (must match client)
 KEY = b'mysecretpasswordmysecretpassword'  # 32 bytes for AES-256
 IV = b'initialvector123'  # 16 bytes for AES
 
 clients = []
 nicknames = []
+connected_clients = []  # list of {'nickname': str, 'ip': str, 'port': int, 'status': str}
 
 CHUNK_SIZE = 4096
 
@@ -121,6 +127,7 @@ def send_file_to_client(client, filename):
 
 # --- connection handling ---
 def handle(client):
+    global connected_clients, client_listbox
     while True:
         try:
             encrypted_message = client.recv(4096)
@@ -167,27 +174,103 @@ def handle(client):
                     nickname = nicknames[index]
                     broadcast(f'{nickname} disconnected')
                     nicknames.remove(nickname)
+                    for c in connected_clients:
+                        if c['nickname'] == nickname:
+                            c['status'] = 'offline'
+                            break
+                    client_listbox.delete(0, 'end')
+                    for c in connected_clients:
+                        client_listbox.insert('end', f"{c['nickname']} - {c['ip']}:{c['port']} - {c['status']} - {c['connect_time']}")
                 except:
                     pass
             break
 
 def receive():
+    global running, connected_clients, client_listbox
     print('Waiting for connection...')
-    while True:
-        client, address = server.accept()
-        print(f'connected with {str(address)}')
+    server.settimeout(1.0)  # timeout to check running flag
+    while running:
+        try:
+            client, address = server.accept()
+            print(f'connected with {str(address)}')
 
-        client.send(encrypt_message('NICK'))
-        encrypted_nickname = client.recv(1024)
-        nickname = decrypt_message(encrypted_nickname)
-        nicknames.append(nickname)
-        clients.append(client)
+            client.send(encrypt_message('NICK'))
+            encrypted_nickname = client.recv(1024)
+            nickname = decrypt_message(encrypted_nickname)
+            nicknames.append(nickname)
+            clients.append(client)
+            connected_clients.append({'nickname': nickname, 'ip': address[0], 'port': address[1], 'status': 'online', 'connect_time': time.asctime(time.localtime())})
+            client_listbox.insert('end', f"{nickname} - {address[0]}:{address[1]} - online - {time.asctime(time.localtime())}")
 
-        print(f'Nickname of the client is {nickname}!')
-        broadcast(f'{nickname} has joined the chat')
+            print(f'Nickname of the client is {nickname}!')
+            broadcast(f'{nickname} has joined the chat')
 
-        thread = threading.Thread(target=handle, args=(client,))
-        thread.start()
+            thread = threading.Thread(target=handle, args=(client,))
+            thread.start()
+        except socket.timeout:
+            continue
+        except Exception as e:
+            if running:
+                print(f"Server error: {e}")
+            break
+
+def start_server():
+    global running, server, client_listbox
+    if running:
+        messagebox.showinfo("Info", "Server is already running")
+        return
+    running = True
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind((host, port))
+    server.listen()
+    threading.Thread(target=receive, daemon=True).start()
+    messagebox.showinfo("Info", f"Server started on {host}:{port}")
+
+def stop_server():
+    global running, connected_clients, client_listbox
+    if not running:
+        messagebox.showinfo("Info", "Server is not running")
+        return
+    running = False
+    server.close()
+    # Close all clients
+    for client in clients:
+        try:
+            client.close()
+        except:
+            pass
+    clients.clear()
+    nicknames.clear()
+    for c in connected_clients:
+        c['status'] = 'offline'
+    client_listbox.delete(0, 'end')
+    for c in connected_clients:
+        client_listbox.insert('end', f"{c['nickname']} - {c['ip']}:{c['port']} - {c['status']} - {c['connect_time']}")
+    messagebox.showinfo("Info", "Server stopped")
+
+def clear_list():
+    global client_listbox
+    client_listbox.delete(0, 'end')
 
 if __name__ == "__main__":
-    receive()
+    ctk.set_appearance_mode("System")
+    ctk.set_default_color_theme("blue")
+
+    root = ctk.CTk()
+    root.title("Chat Server Control")
+    root.geometry("400x400")
+
+    start_button = ctk.CTkButton(root, text="Start Server", command=start_server)
+    start_button.pack(pady=10)
+
+    stop_button = ctk.CTkButton(root, text="Stop Server", command=stop_server)
+    stop_button.pack(pady=10)
+
+    # Listbox for connected clients
+    client_listbox = Listbox(root, height=10)
+    client_listbox.pack(pady=10, fill="both", expand=True)
+
+    clear_button = ctk.CTkButton(root, text="Clear List", command=clear_list)
+    clear_button.pack(pady=10)
+
+    root.mainloop()
