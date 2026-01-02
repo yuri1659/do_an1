@@ -1,7 +1,8 @@
 import socket
 import threading
+import customtkinter as ctk
 from tkinter import *
-from tkinter import filedialog, simpledialog, messagebox
+from tkinter import filedialog, simpledialog, messagebox, simpledialog, END
 import time
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -88,13 +89,22 @@ def connection():
         return
     login.destroy()
 
-    window = Tk()
+    window = ctk.CTk()
     window.title(f"Chat room, username: {nickname}")
 
-    text_messages = Text(window, width=100, bg="green")
-    text_messages.grid(row=0, column=0, columnspan=3, padx=10, pady=10)
+    # Configure grid weights for resizing
+    window.columnconfigure(0, weight=1)
+    window.columnconfigure(1, weight=0)
+    window.columnconfigure(2, weight=0)
+    window.columnconfigure(3, weight=0)
+    window.rowconfigure(0, weight=1)
+    window.rowconfigure(1, weight=0)
+    window.rowconfigure(2, weight=0)
+
+    text_messages = Text(window, bg="green")
+    text_messages.grid(row=0, column=0, columnspan=3, padx=10, pady=10, sticky="nsew")
     scrollbar = Scrollbar(window, command=text_messages.yview)
-    scrollbar.grid(row=0, column=3, sticky="ns")
+    scrollbar.grid(row=0, column=3, sticky="ns", padx=10, pady=10)
     text_messages.config(yscrollcommand=scrollbar.set)
     
     def on_file_link_click(event):
@@ -107,19 +117,19 @@ def connection():
     text_messages.tag_configure("file_link", foreground="blue", underline=True)
     text_messages.tag_bind("file_link", "<Button-1>", on_file_link_click)
 
-    your_messages = Entry(window, width=60)
-    your_messages.grid(row=1, column=0, padx=10, pady=10)
+    your_messages = ctk.CTkEntry(window)
+    your_messages.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
-    messagebutton = Button(window, text="Send Message", width=20)
+    messagebutton = ctk.CTkButton(window, text="Send Message")
     messagebutton.grid(row=1, column=1, padx=5, pady=10)
 
     # --- New GUI elements for file sending ---
-    file_path_entry = Entry(window, width=60)
-    file_path_entry.grid(row=2, column=0, padx=10, pady=5)
-    send_file_button = Button(window, text="Send File", width=20)
+    file_path_entry = ctk.CTkEntry(window)
+    file_path_entry.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+    send_file_button = ctk.CTkButton(window, text="Send File")
     send_file_button.grid(row=2, column=1, padx=5, pady=5)
 
-    browse_button = Button(window, text="Browse", width=10)
+    browse_button = ctk.CTkButton(window, text="Browse")
     browse_button.grid(row=2, column=2, padx=5, pady=5)
 
     def on_file_link_click(event):
@@ -204,10 +214,10 @@ def connection():
             file_path_entry.delete(0, END)
             file_path_entry.insert(0, filepath)
 
-    messagebutton.config(command=write)
+    messagebutton.configure(command=write)
     window.bind("<Return>", write)
-    send_file_button.config(command=send_file_from_entry)
-    browse_button.config(command=browse_file)
+    send_file_button.configure(command=send_file_from_entry)
+    browse_button.configure(command=browse_file)
 
     def handle_incoming_file(initial_info: str):
         try:
@@ -285,19 +295,24 @@ def connection():
 
 
 # ---------- Login window ----------
-login = Tk()
+login = ctk.CTk()
 login.title("Server connection")
-ipaddr_label = Label(login, text="IP Address:", width=10)
+
+# Configure grid weights
+login.columnconfigure(0, weight=0)
+login.columnconfigure(1, weight=1)
+
+ipaddr_label = ctk.CTkLabel(login, text="IP Address:")
 ipaddr_label.grid(row=0, column=0, padx=10, pady=10)
-ipaddr_entry = Entry(login, width=25)
-ipaddr_entry.grid(row=0, column=1, padx=10, pady=10)
+ipaddr_entry = ctk.CTkEntry(login)
+ipaddr_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
 
-username_label = Label(login, text="Nickname:", width=10)
+username_label = ctk.CTkLabel(login, text="Nickname:")
 username_label.grid(row=1, column=0, padx=10, pady=10)
-username_entry = Entry(login, width=25)
-username_entry.grid(row=1, column=1, padx=10, pady=10)
+username_entry = ctk.CTkEntry(login)
+username_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
 
-login_button = Button(login, text="Join", width=15, command=connection)
-login_button.grid(row=2, column=0, padx=10, pady=10)
+login_button = ctk.CTkButton(login, text="Join", command=connection)
+login_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 
 login.mainloop()
